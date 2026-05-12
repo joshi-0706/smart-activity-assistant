@@ -1,15 +1,22 @@
+import os
 import numpy as np
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from tensorflow.keras.models import load_model
 from collections import defaultdict, Counter
 
-# ---------------- LOAD ACTIVITY MODEL ----------------
-model = load_model('../nndl_model/activity_model.keras')
-
 # ---------------- INIT APP ----------------
 app = Flask(__name__)
 CORS(app)
+
+# ---------------- LOAD MODEL (SAFE PATH) ----------------
+model_path = os.path.join(os.path.dirname(__file__), '../nndl_model/activity_model.keras')
+
+model = None
+if os.path.exists(model_path):
+    model = load_model(model_path)
+else:
+    print("⚠️ Model file not found, activity prediction disabled")
 
 # ---------------- NLP MODEL ----------------
 class NgramModel:
@@ -59,8 +66,10 @@ nlp_model.train(text_data)
 # ---------------- ACTIVITY API ----------------
 @app.route('/predict_activity', methods=['POST'])
 def predict_activity():
-    data = request.json['data']
+    if model is None:
+        return jsonify({"error": "Model not loaded"}), 500
 
+    data = request.json['data']
     data = np.array(data).reshape(1, 561, 1)
 
     prediction = model.predict(data)
@@ -79,7 +88,6 @@ def predict_activity():
         "activity": activities[activity_index]
     })
 
-
 # ---------------- NLP API ----------------
 @app.route('/predict_text', methods=['POST'])
 def predict_text():
@@ -90,14 +98,18 @@ def predict_text():
         return jsonify({"suggestions": []})
 
     last_word = words[-1]
-
     suggestions = nlp_model.predict(last_word)
 
     return jsonify({
         "suggestions": suggestions
     })
 
+# ---------------- ROOT CHECK ----------------
+@app.route('/')
+def home():
+    return "Backend is running 🚀"
 
-# ---------------- RUN SERVER ----------------
+# ---------------- RUN SERVER (IMPORTANT FIX) ----------------
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
