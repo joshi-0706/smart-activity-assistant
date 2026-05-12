@@ -6,134 +6,203 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            background: linear-gradient(to right, #4facfe, #00f2fe);
+            background: linear-gradient(135deg, #4facfe, #00f2fe);
             text-align: center;
             margin: 0;
             padding: 0;
+            animation: fadeIn 1s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
 
         .container {
-            margin-top: 100px;
+            margin-top: 80px;
             background: white;
-            padding: 30px;
-            width: 400px;
+            padding: 35px;
+            width: 420px;
             margin-left: auto;
             margin-right: auto;
-            border-radius: 10px;
-            box-shadow: 0px 4px 10px rgba(0,0,0,0.2);
+            border-radius: 15px;
+            box-shadow: 0px 10px 25px rgba(0,0,0,0.25);
+            animation: slideUp 0.8s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(40px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
 
         h1 {
             color: #333;
+            margin-bottom: 10px;
         }
 
         input {
-            width: 80%;
-            padding: 10px;
+            width: 85%;
+            padding: 12px;
             margin-top: 15px;
-            border-radius: 5px;
+            border-radius: 8px;
             border: 1px solid #ccc;
             font-size: 16px;
+            transition: 0.3s;
+        }
+
+        input:focus {
+            border-color: #4facfe;
+            box-shadow: 0 0 8px #4facfe;
+            outline: none;
         }
 
         button {
             margin-top: 15px;
             padding: 10px 20px;
-            background: #4facfe;
+            background: linear-gradient(to right, #4facfe, #007bff);
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             font-size: 16px;
             cursor: pointer;
+            transition: 0.3s;
         }
 
         button:hover {
-            background: #007bff;
+            transform: scale(1.05);
+            box-shadow: 0px 5px 15px rgba(0,0,0,0.3);
         }
 
         #output {
             margin-top: 20px;
             font-size: 18px;
-            color: #333;
             font-weight: bold;
         }
 
-        .suggestions {
+        .loader {
             margin-top: 10px;
+            color: gray;
+            font-style: italic;
+        }
+
+        .suggestions {
+            margin-top: 15px;
         }
 
         .tag {
             display: inline-block;
             background: #e0f7fa;
             color: #00796b;
-            padding: 8px 12px;
+            padding: 8px 14px;
             margin: 5px;
             border-radius: 20px;
-            font-size: 14px;
+            cursor: pointer;
+            opacity: 0;
+            animation: fadeTag 0.5s forwards;
         }
+
+        @keyframes fadeTag {
+            to { opacity: 1; }
+        }
+
+        .tag:hover {
+            background: #b2ebf2;
+            transform: scale(1.1);
+        }
+
+        /* Typing animation */
+        .typing {
+            border-right: 2px solid black;
+            white-space: nowrap;
+            overflow: hidden;
+            display: inline-block;
+            animation: typing 2s steps(20), blink 0.5s step-end infinite alternate;
+        }
+
+        @keyframes typing {
+            from { width: 0 }
+            to { width: 100% }
+        }
+
+        @keyframes blink {
+            50% { border-color: transparent }
+        }
+
     </style>
 </head>
 
 <body>
 
 <div class="container">
-    <h1>Smart Activity Assistant</h1>
+    <h1 class="typing">Smart Activity Assistant</h1>
 
-    <input type="text" id="inputText" placeholder="Type something...">
+    <input type="text" id="inputText" placeholder="Type something like 'i am'...">
     <br>
 
     <button onclick="predict()">Predict</button>
 
     <div id="output"></div>
+    <div class="loader" id="loader"></div>
     <div class="suggestions" id="suggestions"></div>
 </div>
 
 <script>
+
+const API_URL = "https://smart-backend-d8x7.onrender.com/predict_text";
+
 function predict() {
     let text = document.getElementById("inputText").value;
 
     if (text.trim() === "") {
-        alert("Please enter text");
+        alert("Enter some text");
         return;
     }
 
-    // Clear previous results
-    document.getElementById("output").innerText = "Loading...";
+    document.getElementById("output").innerText = "";
     document.getElementById("suggestions").innerHTML = "";
+    document.getElementById("loader").innerText = "Thinking... 🤖";
 
-    fetch("http://127.0.0.1:5000/predict_text", {
+    fetch(API_URL, {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
         },
         body: JSON.stringify({ text: text })
     })
-    .then(response => response.json())
+    .then(res => res.json())
     .then(data => {
+        document.getElementById("loader").innerText = "";
         document.getElementById("output").innerText = "Suggestions:";
 
-        let suggestionsDiv = document.getElementById("suggestions");
-        suggestionsDiv.innerHTML = "";
+        let box = document.getElementById("suggestions");
 
-        data.suggestions.forEach(word => {
+        data.suggestions.forEach((word, index) => {
             let span = document.createElement("span");
             span.className = "tag";
+            span.style.animationDelay = (index * 0.2) + "s";
             span.innerText = word;
-            suggestionsDiv.appendChild(span);
+
+            span.onclick = () => {
+                document.getElementById("inputText").value += " " + word;
+            };
+
+            box.appendChild(span);
         });
     })
-    .catch(error => {
-        console.error(error);
-        document.getElementById("output").innerText = "Error fetching data";
+    .catch(err => {
+        console.error(err);
+        document.getElementById("loader").innerText = "";
+        document.getElementById("output").innerText = "Server error ❌";
     });
 }
 
-// 🔥 BONUS: Press Enter to predict
-document.getElementById("inputText").addEventListener("keypress", function(event) {
-    if (event.key === "Enter") {
+// ENTER KEY SUPPORT
+document.getElementById("inputText").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") {
         predict();
     }
 });
+
 </script>
 
 </body>
