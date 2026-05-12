@@ -2,21 +2,11 @@ import os
 import numpy as np
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from tensorflow.keras.models import load_model
 from collections import defaultdict, Counter
 
 # ---------------- INIT APP ----------------
 app = Flask(__name__)
 CORS(app)
-
-# ---------------- LOAD MODEL (SAFE PATH) ----------------
-model_path = os.path.join(os.path.dirname(__file__), '../nndl_model/activity_model.keras')
-
-model = None
-if os.path.exists(model_path):
-    model = load_model(model_path)
-else:
-    print("⚠️ Model file not found, activity prediction disabled")
 
 # ---------------- NLP MODEL ----------------
 class NgramModel:
@@ -63,29 +53,11 @@ people are working in office
 nlp_model = NgramModel()
 nlp_model.train(text_data)
 
-# ---------------- ACTIVITY API ----------------
+# ---------------- ACTIVITY API (DISABLED IN CLOUD) ----------------
 @app.route('/predict_activity', methods=['POST'])
 def predict_activity():
-    if model is None:
-        return jsonify({"error": "Model not loaded"}), 500
-
-    data = request.json['data']
-    data = np.array(data).reshape(1, 561, 1)
-
-    prediction = model.predict(data)
-    activity_index = np.argmax(prediction)
-
-    activities = [
-        "Walking",
-        "Walking Upstairs",
-        "Walking Downstairs",
-        "Sitting",
-        "Standing",
-        "Laying"
-    ]
-
     return jsonify({
-        "activity": activities[activity_index]
+        "activity": "Activity model not available in cloud deployment"
     })
 
 # ---------------- NLP API ----------------
@@ -104,12 +76,12 @@ def predict_text():
         "suggestions": suggestions
     })
 
-# ---------------- ROOT CHECK ----------------
+# ---------------- HOME ROUTE ----------------
 @app.route('/')
 def home():
     return "Backend is running 🚀"
 
-# ---------------- RUN SERVER (IMPORTANT FIX) ----------------
+# ---------------- RUN SERVER (RENDER FIX) ----------------
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
